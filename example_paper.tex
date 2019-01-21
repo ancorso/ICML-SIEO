@@ -1,0 +1,234 @@
+%%%%%%%% ICML 2019 EXAMPLE LATEX SUBMISSION FILE %%%%%%%%%%%%%%%%%
+
+\documentclass{article}
+
+% Recommended, but optional, packages for figures and better typesetting:
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{subfigure}
+\usepackage{booktabs} % for professional tables
+
+% hyperref makes hyperlinks in the resulting PDF.
+% If your build breaks (sometimes temporarily if a hyperlink spans a page)
+% please comment out the following usepackage line and replace
+% \usepackage{icml2019} with \usepackage[nohyperref]{icml2019} above.
+\usepackage{hyperref}
+
+% Attempt to make hyperref and algorithmic work together better:
+\newcommand{\theHalgorithm}{\arabic{algorithm}}
+
+% Use the following line for the initial blind version submitted for review:
+\usepackage{icml2019}
+
+% If accepted, instead use the following line for the camera-ready submission:
+%\usepackage[accepted]{icml2019}
+
+% The \icmltitle you define below is probably too long as a header.
+% Therefore, a short form for the running title is supplied here:
+\icmltitlerunning{System Identification through Expression Optimization}
+
+
+%%%%%%%% this region contains all the stuff Anthony Added %%%%
+\usepackage{bm}
+\usepackage{amsfonts}
+\newcommand{\todo}[1]{\textbf{[[#1]]}}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+
+\twocolumn[
+\icmltitle{System Identification through Expression Optimization}
+
+% It is OKAY to include author information, even for blind
+% submissions: the style file will automatically remove it for you
+% unless you've provided the [accepted] option to the icml2019
+% package.
+
+% List of affiliations: The first argument should be a (short)
+% identifier you will use later to specify author affiliations
+% Academic affiliations should list Department, University, City, Region, Country
+% Industry affiliations should list Company, City, Region, Country
+
+% You can specify symbols, otherwise they are numbered in order.
+% Ideally, you should not use this facility. Affiliations will be numbered
+% in order of appearance and this is the preferred way.
+\icmlsetsymbol{equal}{*}
+
+\begin{icmlauthorlist}
+\icmlauthor{Anthony Corso}{stanford}
+\icmlauthor{Mykel Kochenderfer}{stanford}
+\end{icmlauthorlist}
+
+\icmlaffiliation{stanford}{Department of Aeronautics and Astronautics, Stanford University, Stanford, California, USA}
+
+\icmlcorrespondingauthor{Anthony Corso}{acorso@stanford.edu}
+\icmlcorrespondingauthor{Mykel Kochenderfer}{mykel@stanford.edu}
+
+% You may provide any keywords that you
+% find helpful for describing your paper; these are used to populate
+% the "keywords" metadata in the PDF but will not be shown in the document
+\icmlkeywords{Machine Learning, ICML}
+
+\vskip 0.3in
+]
+
+% this must go after the closing bracket ] following \twocolumn[ ...
+
+% This command actually creates the footnote in the first column
+% listing the affiliations and the copyright notice.
+% The command takes one argument, which is text to display at the start of the footnote.
+% The \icmlEqualContribution command is standard text for equal contribution.
+% Remove it (just {}) if you do not need this facility.
+
+%\printAffiliationsAndNotice{}  % leave blank if no need to mention equal contribution
+\printAffiliationsAndNotice{\icmlEqualContribution} % otherwise use the standard text.
+
+\begin{abstract}
+With the abundance of natural data from physical systems, much engineering and scientific value comes from an ability to discover the underlying, governing equations of a system, with little prior knowledge. Current approaches for data-driven system identification either find relationships in the data that aren't interpretable, or require significant prior knowledge from the user. This work describes a new approach to system identification that requires minimal user input and discovers governing equations that are parsimonious, generalizable and interpretable. This is enabled by recent advances in expression optimization, allowing for the automated discovery of mathematical expressions from a combinatorically large set of possibilities. Using simulated data, our approach correctly identifies both linear and nonlinear PDEs including the Navier-Stokes equations. It can also generate exact and approximate Koopman eigenfunctions for nonlinear ODEs. The ability to interpret large amounts of data will allow researchers to better understand and control important natural systems, such as the earth’s climate, for addressing global warming and fluid flow for more efficient energy generation and transportation.
+\end{abstract}
+
+\section{Introduction}
+\label{introduction}
+
+Over the past several decades machine learning and artificial intelligence has made great strides in learning patterns from large amounts of data. Although accurate, these systems are often uninterpretable by the human researchers who create them. They do not report an explanation for their predictions nor do they generalize well when the task is changed slightly.
+
+Recently, however, strides have been made to create AI systems that, rather than just looking for trends, look for causal explanations of observed data (Bridewell, 2008, Brunton, 2016). If an AI system can correctly determine a simple underlying model for a system then it has the capability of providing an explanatory account of the data as well as the ability to generalize well in predicting behavior under a wider variety of situations. This can help researchers more quickly discover models that explain experimental data.
+
+The goal of this project is to implement a system identifier for the discovery of physical processes in terms understandable by a human researcher (i.e. stated as partial differential equations (PDEs)). The system should work with multi-dimensional data, be robust to noise, and require small amounts of data to operate. This paper is outlined as follows: The next section discusses the approach to system identification that will be used, including how features are generated and selected from observed data. The following section describes two test systems from which synthetic noisy data is obtained to demonstrate the system identifier. The last two sections report the results of the system identifier and a discussion of how it can be improved.
+
+The metric that was chosen to decide between models is the adjusted $R^2$ value of the fit. The traditional $R^2$ value always increases when new features are added so it makes our algorithm susceptible to overfitting. Instead, we penalized the addition of more features to the regression by defining the $R_{\rm adj}^2$ as
+\[ R_{\rm adj}^2 = R^2 - (1-  R^2)(n-1)^2 - \lambda (n-1) \]
+where $n$ is the number of features in the model.
+
+Note that when $n=1$, this expression reduces to the traditional $R^2$ value. But when $n>1$, then the difference between $R^2$ and 1 is scaled by the number of parameters squared. The third term in the expression was included for the cases when $R^2$ was very close to or exactly one (as can be the case when dealing with noise-free synthetic data). If $R^2 = 1$, the second term vanishes, and there would be no way to distinguish between models of different complexity. Thus, a small value of $\lambda$ is chosen to break ties in favor of the simpler model. In the following tests, $\lambda = 0.001$ was used.
+
+
+\section{System Identification}
+\label{systemidentification}
+
+The goal of identifying a simple model that describes observed data has been researched in the past by Bridewell, 2008, Brunton, 2016. The system identifier presented here, takes elements from those two approaches while expanding the capabilities to the domain of spatio-temporal processes governed by nonlinear PDEs. The simplest form of a general PDE is given by
+\[ \frac{\partial u(x,t)}{\partial t} = \alpha_1 f_1(u(x,t)) + ... + \alpha_n f_n(u(x,t)) = \bm{\alpha}^T \bm{f} \]
+where the $\alpha_i$ are constant coefficients and the functions $f_i$ are \textit{feature functions} of the solution $u(x,t)$.
+
+The first step of the system will be to generate a large number of feasible feature functions that could comprise the PDE. The second step is to select a subset of these features that best explain the left hand side of the PDE through linear regression. These steps are discussed in more detail in the next few subsections.
+
+\todo{Include objective function here}
+
+\subsection{Generation of Features}
+The choice of feature selection in general is a difficult problem. There are an infinite number of possible feature functions and it is impossible to know a priori which functions will comprise the PDE. Since the system identifier is meant to be an aide to researchers and scientists, it is reasonable to ask the user to provide some amount of guidance to the algorithm without explicitly handing over a set of feature functions (which the researcher presumably does not know).
+
+To this end, the system identifier relies on a domain-specific \textit{grammar}, provided by the user, that gives the rules for generating feature functions. A grammar is a set of production rules that govern a language (or a set of expressions). Each rule can either be \textit{non-terminal}, in which the rule relates generic expressions together (e.g. multiplication), or \textit{terminal}, in which an expression is concretely defined (e.g. the observed data). Each expression in the language can be represented by a tree of operators, each of which is part of the grammar. Once a grammar is defined, expressions can be sampled from the grammar with varying levels of complexity (as defined by the depth of the expression tree).
+
+A sample grammar and expression tree are shown in figure \ref{fig:grammar}. A convenient way to read the rules of the grammar is to convert it to plain english. Let $\mathbb{R}$ mean ``an expression'' and $\mapsto$ mean ``can be'', then the second production rule reads ``an expression can be an expression times an expression''. The last production rule is where the variables of interest are introduced. This rule reads ``an expression can be a velocity component or pressure''. Sampling from a grammar is a process of selecting production rules and then filling in any non-terminal expressions until only terminal expressions remain. In the expression tree shown in the right of figure \ref{fig:grammar}, the first production rule chosen is multiplication. Then, on the left side, the terminal expression $u$ was chosen, and on the right side, the spatial derivative was chosen, followed by the terminal expression $u$.
+
+To produce the candidate set of features, the user will specify a desired tree depth, $d$, and all possible expressions with depth $\leq d$ will be produced. Then, this set of features is searched for expressions that evaluate to the same results and any such duplicates are removed. The number of candidate expressions grows exponentially with the depth of the tree, but fortunately, most pdes that govern physical processes have terms that are only at a depth of 4 or less which makes the problem tractable (see Wikipedia list of nonlinear PDEs, 2018). For the model systems, all terms can be produced from an expression depth of 3, which, for the grammar in figure \ref{fig:grammar} means that a total of 562 features will be considered (222 after removing duplicates). The julia package \verb|ExprRules.jl| was used to build the grammar and to sample expressions from it at the desired depth.
+
+\subsection{Expression Optimization}
+
+
+
+\section{Results}
+\label{results}
+
+\subsection{Advection-Diffusion Equation}
+
+The first test system is the unsteady 1D advection-diffusion equation which describes the general transport of material in a fluid. The system has the form
+\[ \frac{\partial u}{\partial t} = D\frac{\partial^2 u}{\partial x^2} - v \frac{\partial u}{\partial x} \quad \text{with bcs} \quad u(x,0) = u_0, \quad
+u(0,t) = u_L, \quad
+\frac{\partial u}{\partial x}(\infty, t) = 0 \]
+The exact solution of which is given by Van Genuchten 1982 as
+\[ u(x,t) = u_0 + \frac{1}{2}(u_L - u_0) \left({\rm erfc}\left[ \frac{x - vt}{2\sqrt{Dt}}\right] + {\rm exp}(vx/D) {\rm erfc}\left[ \frac{x + vt}{2\sqrt{Dt}}\right] \right) \]
+The solution is plotted in figure \ref{fig:adv_diff_sol} for $x>0$, $t>0$, $D=1$ and $v=0.5$.
+
+\subsection{Navier-Stokes Equations}
+\todo{Change this to the viscous incompressible flow equations}
+The second test system is the steady 2D Euler equations which govern the flow of an inviscid fluid in two dimensions. The system has the form (written in vector index notation for convenience)
+\[
+\frac{\partial u_i}{\partial x_i} = 0, \quad \quad \quad
+u_j \frac{\partial u_i}{\partial x_j} = - \frac{1}{\rho} \partial{p}{\partial x_i}, \quad \text{with bc} \quad \vec{u}(-\infty, y) = (U_\infty, 0)
+\]
+where $\rho$ is the constant density of the fluid, $u_i$ is the $i^{\rm th}$ velocity component and $x_i$ is the $i^{\rm th}$ velocity spatial direction (for $i=1,\ 2$).
+The first equation represents conservation of mass in the fluid, while the second equation represents conservation of momentum.
+
+\subsection{Koopman Eigenfunction Discovery}
+
+
+A simple nonlinear ODE with an easily found, and finite-dimensional Koopman eigenfunctions is given by [Brunton citation]
+
+\begin{align}
+  \label{simplekoopman}
+\frac{dx}{dt} = \mu x \\
+\frac{dy}{dt} = \lambda(y - x^2)
+\end{align}
+
+The state-space transformation
+\[ \begin{bmatrix}
+x\\
+y
+\end{bmatrix} \Rightarrow \begin{bmatrix}
+x \\
+y \\
+x^2
+\end{bmatrix}
+\]
+
+linearizes equation \ref{simplekoopman} to
+\[ \frac{d}{dt} \begin{bmatrix}
+\mu & 0 & 0 \\
+0 & \lambda & -\lambda \\
+0 & 0 & 2 \mu
+\end{bmatrix} \begin{bmatrix}
+x \\
+y \\
+x^2
+\end{bmatrix}
+\]
+
+
+
+
+
+
+
+\subsubsection{Van Der Pol Oscillator}
+The Van Der Pol oscillator is a well-known nonlinear second order ODE of the form
+\[ \frac{d^2 x}{dt^2} - \mu (1- x^2) \frac{dx}{dt} + x \]
+which can be converted to two first order nonlinear ODEs of the form [citation Understanding Nonlinear Dynamics]
+
+\begin{align}
+  \frac{dx}{dt} = \frac{1}{\mu}\left(y - \frac{1}{3} x^3 + x) \\
+  \frac{dy}{dt} = -\mu x
+\end{align}
+
+
+
+
+\section{Conclusions}
+
+
+
+% Acknowledgements should only appear in the accepted version.
+% \section*{Acknowledgements}
+
+% In the unusual situation where you want a paper to appear in the
+% references without citing it in the main text, use \nocite
+\nocite{langley00}
+
+\bibliography{example_paper}
+\bibliographystyle{icml2019}
+
+
+\end{document}
+
+
+% This document was modified from the file originally made available by
+% Pat Langley and Andrea Danyluk for ICML-2K. This version was created
+% by Iain Murray in 2018, and modified by Alexandre Bouchard in
+% 2019. Previous contributors include Dan Roy, Lise Getoor and Tobias
+% Scheffer, which was slightly modified from the 2010 version by
+% Thorsten Joachims & Johannes Fuernkranz, slightly modified from the
+% 2009 version by Kiri Wagstaff and Sam Roweis's 2008 version, which is
+% slightly modified from Prasad Tadepalli's 2007 version which is a
+% lightly changed version of the previous year's version by Andrew
+% Moore, which was in turn edited from those of Kristian Kersting and
+% Codrina Lauth. Alex Smola contributed to the algorithmic style files.
