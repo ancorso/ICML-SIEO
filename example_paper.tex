@@ -5,7 +5,7 @@
 % Recommended, but optional, packages for figures and better typesetting:
 \usepackage{microtype}
 \usepackage{graphicx}
-\usepackage{subfigure}
+\usepackage{subfig}
 \usepackage{booktabs} % for professional tables
 
 % hyperref makes hyperlinks in the resulting PDF.
@@ -102,6 +102,14 @@ where $n$ is the number of features in the model. $R_{\rm adj}^2$ reduces to $R^
 
 Note that when $n=1$, this expression reduces to the traditional $R^2$ value. But when $n>1$, then the difference between $R^2$ and 1 is scaled by the number of parameters.
 
+In the case of discovering Koopman modes, parsimony is no longer a consideration so a new objective function needs to be used. Given a linear system with $n_g$ number of Koopman eigenfunctions, the loss function associated with the Koopman operator $K$ and Koopman eigenfunction $\vec{g}$ is given by
+
+\[ l(K, \vec{g}) = \frac{1}{n_g}||\vec{g}(\vec{x})^{t+1} - K \vec{g}(\vec{x})^{t}||_2^2 \]
+
+The scaling by $1/n_g$ is so that that algorithm does not get penalized for adding more Koopman eigenfunctions to explain the system, and instead focuses on closely matching each new state variable on each iteration.
+
+
+
 
 \section{System Identification}
 \label{systemidentification}
@@ -161,31 +169,13 @@ The second test system is the incompressible 2D Navier-Stokes equations which de
 where $\rho$ is the fluid density, $(u, v)$ is the fluid velocity, $p$ is the pressure, and $\mu$ is the viscosity. The first equation represnts the conservation of mass and the next two equations represent convservation of momentum in the $x$ and $y$ directions, respectively. These equations are nonlinear, have multiple dimensions ($x$ and $y$) and multiple degrees of freedom ($u$, $v$, and $p$), which makes them a challenging test case for system identification.
 
 \begin{figure}[ht]
-\vskip 0.2in
-\begin{subfigure}
-  \begin{center}
-  \centerline{\includegraphics[width=\columnwidth]{figures/uvel.svg}}
-  \caption{X-Velocity}
-  \label{xvelocity}
-  \end{center}
-\end{subfigure}
-
-\begin{subfigure}
-  \begin{center}
-  \centerline{\includegraphics[width=\columnwidth]{figures/vvel.svg}}
-  \caption{V-Velocity}
-  \label{yvelocity}
-  \end{center}
-\end{subfigure}
-
-\begin{subfigure}
-  \begin{center}
-  \centerline{\includegraphics[width=\columnwidth]{figures/pressure.svg}}
-  \caption{Pressure}
-  \label{pressure}
-  \end{center}
-\end{subfigure}
-\vskip -0.2in
+  \vskip 0.2in
+    \subfloat[]{\label{xvelocity}\caption{$x-velocity$}\includegraphics{figures/uvel.svg}} \\
+    \subfloat[]{\label{yvelocity}\caption{$y-velocity$}\includegraphics{figures/vvel.svg}} \\
+    \subfloat[]{\label{pressure}\caption{$pressure$}\includegraphics{figures/vvel.svg}}
+    \caption{Global caption that can reference \ref{sublable1} and \ref{sublable2}}
+    \label{ns_data}
+    \vskip -0.2in
 \end{figure}
 
 \subsection{Koopman Eigenfunction Discovery}
