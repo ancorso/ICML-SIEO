@@ -96,11 +96,11 @@ Recently, however, strides have been made to create AI systems that, rather than
 
 The goal of this project is to implement a system identifier for the discovery of physical processes in terms understandable by a human researcher (i.e. stated as partial differential equations (PDEs)). The system should work with multi-dimensional data, be robust to noise, and require small amounts of data to operate. This paper is outlined as follows: The next section discusses the approach to system identification that will be used, including how features are generated and selected from observed data. The following section describes two test systems from which synthetic noisy data is obtained to demonstrate the system identifier. The last two sections report the results of the system identifier and a discussion of how it can be improved.
 
-The metric that was chosen to decide between models is the adjusted $R^2$ value of the fit. The traditional $R^2$ value always increases when new features are added so it makes our algorithm susceptible to overfitting. Instead, we penalized the addition of more features to the regression by defining the $R_{\rm adj}^2$ as
-\[ R_{\rm adj}^2 = R^2 - (1-  R^2)(n-1)^2 - \lambda (n-1) \]
-where $n$ is the number of features in the model.
+The metric that was chosen to decide between models is the adjusted $R^2$ value of the fit. The traditional $R^2$ value always increases when new features are added so it makes our algorithm susceptible to overfitting. Instead, we penalized the addition of more features to the regression by defining the $R_{\rm adj}^2$ as [CITATION]
+\[ R_{\rm adj}^2 = R^2 - \alpha (1-  R^2)(n-1)^2\]
+where $n$ is the number of features in the model. $R_{\rm adj}^2$ reduces to $R^2$ when there is only a single
 
-Note that when $n=1$, this expression reduces to the traditional $R^2$ value. But when $n>1$, then the difference between $R^2$ and 1 is scaled by the number of parameters squared. The third term in the expression was included for the cases when $R^2$ was very close to or exactly one (as can be the case when dealing with noise-free synthetic data). If $R^2 = 1$, the second term vanishes, and there would be no way to distinguish between models of different complexity. Thus, a small value of $\lambda$ is chosen to break ties in favor of the simpler model. In the following tests, $\lambda = 0.001$ was used.
+Note that when $n=1$, this expression reduces to the traditional $R^2$ value. But when $n>1$, then the difference between $R^2$ and 1 is scaled by the number of parameters.
 
 
 \section{System Identification}
@@ -140,17 +140,65 @@ The exact solution of which is given by Van Genuchten 1982 as
 \[ u(x,t) = u_0 + \frac{1}{2}(u_L - u_0) \left({\rm erfc}\left[ \frac{x - vt}{2\sqrt{Dt}}\right] + {\rm exp}(vx/D) {\rm erfc}\left[ \frac{x + vt}{2\sqrt{Dt}}\right] \right) \]
 The solution is plotted in figure \ref{fig:adv_diff_sol} for $x>0$, $t>0$, $D=1$ and $v=0.5$.
 
+\begin{figure}[ht]
+\vskip 0.2in
+\begin{center}
+\centerline{\includegraphics[width=\columnwidth]{figures/advdif}}
+\caption{Unsteady data from the 1D advection-diffusion equation}
+\label{advdif}
+\end{center}
+\vskip -0.2in
+\end{figure}
+
 \subsection{Navier-Stokes Equations}
-\todo{Change this to the viscous incompressible flow equations}
-The second test system is the steady 2D Euler equations which govern the flow of an inviscid fluid in two dimensions. The system has the form (written in vector index notation for convenience)
-\[
-\frac{\partial u_i}{\partial x_i} = 0, \quad \quad \quad
-u_j \frac{\partial u_i}{\partial x_j} = - \frac{1}{\rho} \partial{p}{\partial x_i}, \quad \text{with bc} \quad \vec{u}(-\infty, y) = (U_\infty, 0)
-\]
-where $\rho$ is the constant density of the fluid, $u_i$ is the $i^{\rm th}$ velocity component and $x_i$ is the $i^{\rm th}$ velocity spatial direction (for $i=1,\ 2$).
-The first equation represents conservation of mass in the fluid, while the second equation represents conservation of momentum.
+The second test system is the incompressible 2D Navier-Stokes equations which describe the motion of a fluid. The Navier-Stokes equations are given by
+\begin{align}
+  \frac{\partial u}{\partial x} + \partial{v}{\partial y} &= 0
+  \frac{\partial u }{\partial t} + u \frac{\partial u }{\partial x} + v \frac{\partial u }{\partial y} &= - \frac{1}{\rho} \frac{\partial p}{\partial x} + \frac{\mu}{\rho}\left( \frac{\partial^2 u}{\partial x^2} + \frac{\partial^2 u}{\partial y^2} \right) \\
+\frac{\partial v }{\partial t} + u \frac{\partial v }{\partial x} + v \frac{\partial v }{\partial y} &= - \frac{1}{\rho} \frac{\partial p}{\partial v} + \frac{\mu}{\rho}\left( \frac{\partial^2 v}{\partial x^2} + \frac{\partial^2 v}{\partial y^2} \right) \\
+\end{align}
+
+where $\rho$ is the fluid density, $(u, v)$ is the fluid velocity, $p$ is the pressure, and $\mu$ is the viscosity. The first equation represnts the conservation of mass and the next two equations represent convservation of momentum in the $x$ and $y$ directions, respectively. These equations are nonlinear, have multiple dimensions ($x$ and $y$) and multiple degrees of freedom ($u$, $v$, and $p$), which makes them a challenging test case for system identification.
+
+\begin{figure}[ht]
+\vskip 0.2in
+\begin{subfigure}
+  \begin{center}
+  \centerline{\includegraphics[width=\columnwidth]{figures/uvel.svg}}
+  \caption{X-Velocity}
+  \label{xvelocity}
+  \end{center}
+\end{subfigure}
+
+\begin{subfigure}
+  \begin{center}
+  \centerline{\includegraphics[width=\columnwidth]{figures/vvel.svg}}
+  \caption{V-Velocity}
+  \label{yvelocity}
+  \end{center}
+\end{subfigure}
+
+\begin{subfigure}
+  \begin{center}
+  \centerline{\includegraphics[width=\columnwidth]{figures/pressure.svg}}
+  \caption{Pressure}
+  \label{pressure}
+  \end{center}
+\end{subfigure}
+\vskip -0.2in
+\end{figure}
 
 \subsection{Koopman Eigenfunction Discovery}
+
+Koopman theory [CITATION] states that an nonlinear dynamical system can be converted into a linear system under the state space mapping
+\[ \vec{x} \right \vec{g}{\vec{x}} \]
+where $\vec{g}(x) = \begin{bmatrix} g_1(\vec{x}) & g_2(\vec{x}) & + & ... \end{bmatrix}$ and is, in general infinite dimensional.
+
+Given the time-discrete nonlinear dynamical system given by
+\[ \vec{x}^{t+1} = \vec{f}(\vec{x}^t)\]
+the Koopman transformation yields the linear system
+\[ \vec{g}(\vec{x})^{t+1} = K \vec{g}(\vec{x})^{t} \]
+
 
 
 A simple nonlinear ODE with an easily found, and finite-dimensional Koopman eigenfunctions is given by [Brunton citation]
@@ -190,15 +238,17 @@ x^2
 
 
 
-\subsubsection{Van Der Pol Oscillator}
-The Van Der Pol oscillator is a well-known nonlinear second order ODE of the form
-\[ \frac{d^2 x}{dt^2} - \mu (1- x^2) \frac{dx}{dt} + x \]
-which can be converted to two first order nonlinear ODEs of the form [citation Understanding Nonlinear Dynamics]
+\subsubsection{Nonlinear Pendulum}
+One of the simplest nonlinear ODEs describes the motion of a pendulum. The equation of motion a pendulum is given by
+\[ \frac{d^2 \theta}{d t^2} + \sin \theta = 0 \]
+This equation can be converted to a system of nonlinear first-order ODEs given by
+\begin{align*}
+\frac{d\theta}{dt} &= \omega \\
+\frac{d\omega}{dt} &= -\sin \theta
+\end{align*}
 
-\begin{align}
-  \frac{dx}{dt} = \frac{1}{\mu}\left(y - \frac{1}{3} x^3 + x) \\
-  \frac{dy}{dt} = -\mu x
-\end{align}
+
+
 
 
 
