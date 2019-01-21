@@ -31,6 +31,7 @@
 %%%%%%%% this region contains all the stuff Anthony Added %%%%
 \usepackage{bm}
 \usepackage{amsfonts}
+\usepackage{amsmath}
 \newcommand{\todo}[1]{\textbf{[[#1]]}}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -96,15 +97,22 @@ Recently, however, strides have been made to create AI systems that, rather than
 
 The goal of this project is to implement a system identifier for the discovery of physical processes in terms understandable by a human researcher (i.e. stated as partial differential equations (PDEs)). The system should work with multi-dimensional data, be robust to noise, and require small amounts of data to operate. This paper is outlined as follows: The next section discusses the approach to system identification that will be used, including how features are generated and selected from observed data. The following section describes two test systems from which synthetic noisy data is obtained to demonstrate the system identifier. The last two sections report the results of the system identifier and a discussion of how it can be improved.
 
+\begin{itemize}
+\item we can think of the system identification task as finding a nonlinear mapping of the features that creates a linear relationship to the output data. If one were to look for a mapping, not just for the input data but for the output data as well, then you would be in the realm of koopman analysis.
+\item the drawback to other methods is that the user is repsonsible for defining which set of nonlinear functions should be used for the algorithm -- something that is not know a priori.
+\item out approach is special because the use has to define only a context-fre grammar which can be very simple and yet lead to many complicated nonlinear features.
+\item Grammars produce a combinatorically large number of possible expressions so we use an expression optimization technique to intelligently search the vast space of possibilites.
+\end{itemize}
+
 The metric that was chosen to decide between models is the adjusted $R^2$ value of the fit. The traditional $R^2$ value always increases when new features are added so it makes our algorithm susceptible to overfitting. Instead, we penalized the addition of more features to the regression by defining the $R_{\rm adj}^2$ as [CITATION]
-\[ R_{\rm adj}^2 = R^2 - \alpha (1-  R^2)(n-1)^2\]
+\[ l_f = -R_{\rm adj}^2 = -[R^2 - \alpha (1-  R^2)(n-1)]\]
 where $n$ is the number of features in the model. $R_{\rm adj}^2$ reduces to $R^2$ when there is only a single
 
 Note that when $n=1$, this expression reduces to the traditional $R^2$ value. But when $n>1$, then the difference between $R^2$ and 1 is scaled by the number of parameters.
 
 In the case of discovering Koopman modes, parsimony is no longer a consideration so a new objective function needs to be used. Given a linear system with $n_g$ number of Koopman eigenfunctions, the loss function associated with the Koopman operator $K$ and Koopman eigenfunction $\vec{g}$ is given by
 
-\[ l(K, \vec{g}) = \frac{1}{n_g}||\vec{g}(\vec{x})^{t+1} - K \vec{g}(\vec{x})^{t}||_2^2 \]
+\[ l_k(K, \vec{g}) = \frac{1}{n_g}||\vec{g}(\vec{x})^{t+1} - K \vec{g}(\vec{x})^{t}||_2^2 \]
 
 The scaling by $1/n_g$ is so that that algorithm does not get penalized for adding more Koopman eigenfunctions to explain the system, and instead focuses on closely matching each new state variable on each iteration.
 
@@ -123,6 +131,53 @@ The first step of the system will be to generate a large number of feasible feat
 \todo{Include objective function here}
 
 \subsection{Generation of Features}
+
+\todo{Put forward search here}
+\begin{algorithm}[tb]
+   \caption{Forward Search}
+   \label{alg:fs}
+\begin{algorithmic}
+   \STATE {\bfseries Input:} Loss function $l_f$, \\
+   \quad \quad \quad New feature generator $n_f$, \\
+   \quad \quad \quad Threshold $t$ \\
+   \STATE Initialize $expr = [ \ ]$,   $\quad lowest = \infty$
+   \REPEAT
+   \STATE $expr = {\rm concatenate}(expr, \ n_f(expression))$
+   \IF{$l_f(expr) < lowest$}
+   \STATE $lowest = l_f(expr)$
+   \ELSE
+   \STATE {\bfseries return} $expr$
+   \ENDIF
+   \UNTIL $lowest < t$
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[tb]
+   \caption{Backward Search}
+   \label{alg:bs}
+\begin{algorithmic}
+   \STATE {\bfseries Input:} Loss function $l_f$, \\
+   \quad \quad \quad Expression $expr$, \\
+   \quad \quad \quad Threshold $t$ \\
+   \STATE Initialize $lowest = l_f(expr)$
+   \REPEAT
+   \STATE Initialize $losses = [ \ ]$
+   \FOR{$feat$ {\bfseries in} $expr$}
+   \STATE $new_expr = {\rm remove}(expr, feat)$
+   \STATE ${\rm push}(losses, l_f(new_expr))$
+   \ENDFOR
+   \STATE $i = \argmin(losses)$
+   \IF{$losses[i] < lowest$}
+   \STATE $lowest = losses[i]$
+   \STATE $expr = {\rm remove}(expr, feat)$
+   \ELSE
+   \STATE {\bfseries return} $expr$
+   \ENDIF
+   \UNTIL $lowest < t$
+\end{algorithmic}
+\end{algorithm}
+
+
 The choice of feature selection in general is a difficult problem. There are an infinite number of possible feature functions and it is impossible to know a priori which functions will comprise the PDE. Since the system identifier is meant to be an aide to researchers and scientists, it is reasonable to ask the user to provide some amount of guidance to the algorithm without explicitly handing over a set of feature functions (which the researcher presumably does not know).
 
 To this end, the system identifier relies on a domain-specific \textit{grammar}, provided by the user, that gives the rules for generating feature functions. A grammar is a set of production rules that govern a language (or a set of expressions). Each rule can either be \textit{non-terminal}, in which the rule relates generic expressions together (e.g. multiplication), or \textit{terminal}, in which an expression is concretely defined (e.g. the observed data). Each expression in the language can be represented by a tree of operators, each of which is part of the grammar. Once a grammar is defined, expressions can be sampled from the grammar with varying levels of complexity (as defined by the depth of the expression tree).
@@ -133,55 +188,136 @@ To produce the candidate set of features, the user will specify a desired tree d
 
 \subsection{Expression Optimization}
 
+\subsubsection{Grammatical Evolution}
+Grammatical Evolution is an expression optimzation approach introduced by [CITATION]. Each feature that is sampled from the grammar is expressed as an unbounded integer array that can be parsed from left to right into an expression tree. Each integer array is transformed in a manner similar to genetic algorithms. The basic operations are
+\begin{enumerate}
+\item \textbf{Selection} - The integer arrays with the best fitness (lowest cost function) are selected from the population
+\item \textbf{Crossover} - The fittest individuals produce offspring that carry traits from the parents
+\item \textbf{Mutation} - The integer arrays are randomly altered (while preserving the rules of the grammar)
+\item \textbf{Gene Duplication} - Where useful genes are copied in the integer array so that they are less likely to be lost
+\item \textbf{Pruning} - Some integer arrays will contain genetic information that is unused (put there through crossover). So with some probability unused genes are pruned in an individual.
+\item
+\end{enumerate}
+
+These operations are applied to a large number of individuals over many generations in order to produce optimal features from the large space of possibilities.
 
 
 \section{Results}
 \label{results}
 
+
 \subsection{Advection-Diffusion Equation}
 
 The first test system is the unsteady 1D advection-diffusion equation which describes the general transport of material in a fluid. The system has the form
-\[ \frac{\partial u}{\partial t} = D\frac{\partial^2 u}{\partial x^2} - v \frac{\partial u}{\partial x} \quad \text{with bcs} \quad u(x,0) = u_0, \quad
-u(0,t) = u_L, \quad
-\frac{\partial u}{\partial x}(\infty, t) = 0 \]
+\[ \frac{\partial u}{\partial t} = D\frac{\partial^2 u}{\partial x^2} - v \frac{\partial u}{\partial x} \]
+
+\begin{align}
+  u(x,0) &= u_0 \\
+  u(0,t) &= u_L \\
+  \frac{\partial u}{\partial x}(\infty, t) &= 0
+\end{align}
+
 The exact solution of which is given by Van Genuchten 1982 as
-\[ u(x,t) = u_0 + \frac{1}{2}(u_L - u_0) \left({\rm erfc}\left[ \frac{x - vt}{2\sqrt{Dt}}\right] + {\rm exp}(vx/D) {\rm erfc}\left[ \frac{x + vt}{2\sqrt{Dt}}\right] \right) \]
-The solution is plotted in figure \ref{fig:adv_diff_sol} for $x>0$, $t>0$, $D=1$ and $v=0.5$.
+\begin{equation}
+  \begin{split}
+  u(x,t) = u_0 + \frac{1}{2}&(u_L - u_0) \left({\rm erfc}\left[ \frac{x - vt}{2\sqrt{Dt}}\right]\right. \\
+  &+ \left.{\rm exp}(vx/D) {\rm erfc}\left[ \frac{x + vt}{2\sqrt{Dt}}\right] \right)
+  \end{split}
+\end{equation}
+The solution is plotted in figure \ref{fig:advdif} for $x>0$, $t>0$, $D=1$ and $v=0.5$.
 
 \begin{figure}[ht]
 \vskip 0.2in
 \begin{center}
-\centerline{\includegraphics[width=\columnwidth]{figures/advdif}}
+\centerline{\includegraphics[width=\columnwidth]{./figures/advdif}}
 \caption{Unsteady data from the 1D advection-diffusion equation}
-\label{advdif}
+\label{fig:advdif}
 \end{center}
 \vskip -0.2in
 \end{figure}
 
+\textbf{Grammar}
+\begin{align*}
+  \mathbb{R} &\mapsto u \quad\\
+  \mathbb{R} &\mapsto \frac{d\mathbb{R}}{dx}\\
+  \mathbb{R} &\mapsto \mathbb{R} \times \mathbb{R} \\
+  \mathbb{R} &\mapsto \mathbb{R} / \mathbb{R} \\
+\end{align*}
+The grammar was used to a depth of 3 which generates a total of 37 possible features.
+
+\begin{table}[t]
+\caption{Classification accuracies for naive Bayes and flexible
+Bayes on various data sets.}
+\label{sample-table}
+\vskip 0.15in
+\begin{center}
+\begin{small}
+\begin{sc}
+\begin{tabular}{lccccr}
+\toprule
+Sample &  & Correct & Error & Error\\
+Points & Noise & Expression & in $v$ & in $D$\\
+\midrule
+200 & 1\% & $\surd$ & 0.78 \% & 1.54 \% \\
+200 & 5\% & $\surd$ & 5.64 \% & 2.84 \% \\
+200 & 20\% & $\surd$ & 30.12 \% & 6.60 \% \\
+100 & 0\% & $\surd$ & 0.84 \% & 0.29 \% \\
+35 & 0\% & $\surd$ & 6.38 \% & 2.21 \% \\
+10 & 0\% & $\surd$ & 1.19 \% & 19.02 \% \\
+\bottomrule
+\end{tabular}
+\end{sc}
+\end{small}
+\end{center}
+\vskip -0.1in
+\end{table}
+
+
 \subsection{Navier-Stokes Equations}
 The second test system is the incompressible 2D Navier-Stokes equations which describe the motion of a fluid. The Navier-Stokes equations are given by
 \begin{align}
-  \frac{\partial u}{\partial x} + \partial{v}{\partial y} &= 0
+  \frac{\partial u}{\partial x} + \partial{v}{\partial y} &= 0 \\
   \frac{\partial u }{\partial t} + u \frac{\partial u }{\partial x} + v \frac{\partial u }{\partial y} &= - \frac{1}{\rho} \frac{\partial p}{\partial x} + \frac{\mu}{\rho}\left( \frac{\partial^2 u}{\partial x^2} + \frac{\partial^2 u}{\partial y^2} \right) \\
-\frac{\partial v }{\partial t} + u \frac{\partial v }{\partial x} + v \frac{\partial v }{\partial y} &= - \frac{1}{\rho} \frac{\partial p}{\partial v} + \frac{\mu}{\rho}\left( \frac{\partial^2 v}{\partial x^2} + \frac{\partial^2 v}{\partial y^2} \right) \\
+\frac{\partial v }{\partial t} + u \frac{\partial v }{\partial x} + v \frac{\partial v }{\partial y} &= - \frac{1}{\rho} \frac{\partial p}{\partial v} + \frac{\mu}{\rho}\left( \frac{\partial^2 v}{\partial x^2} + \frac{\partial^2 v}{\partial y^2} \right)
 \end{align}
 
 where $\rho$ is the fluid density, $(u, v)$ is the fluid velocity, $p$ is the pressure, and $\mu$ is the viscosity. The first equation represnts the conservation of mass and the next two equations represent convservation of momentum in the $x$ and $y$ directions, respectively. These equations are nonlinear, have multiple dimensions ($x$ and $y$) and multiple degrees of freedom ($u$, $v$, and $p$), which makes them a challenging test case for system identification.
 
 \begin{figure}[ht]
   \vskip 0.2in
-    \subfloat[]{\label{xvelocity}\caption{$x-velocity$}\includegraphics{figures/uvel.svg}} \\
-    \subfloat[]{\label{yvelocity}\caption{$y-velocity$}\includegraphics{figures/vvel.svg}} \\
-    \subfloat[]{\label{pressure}\caption{$pressure$}\includegraphics{figures/vvel.svg}}
+    \subfloat[$x$-velocity]{\label{xvelocity}\includegraphics[width=\columnwidth]{./figures/xvel}} \\
+    \subfloat[$y$-velocity]{\label{yvelocity}\includegraphics[width=\columnwidth]{./figures/yvel}} \\
+    \subfloat[pressure]{\label{pressure}\includegraphics[width=\columnwidth]{./figures/pressure}}
     \caption{Global caption that can reference \ref{sublable1} and \ref{sublable2}}
     \label{ns_data}
     \vskip -0.2in
 \end{figure}
 
+
+\textbf{Grammar}
+\begin{align*}
+  \mathbb{R} &\mapsto u \quad | \quad v \quad | \quad p \\
+  \mathbb{R} &\mapsto \frac{d\mathbb{R}}{dx} \quad \left| \quad \frac{d\mathbb{R}}{dy} \right. \\
+  \mathbb{R} &\mapsto \mathbb{R} \times \mathbb{R} \\
+\end{align*}
+
 \subsection{Koopman Eigenfunction Discovery}
 
+\begin{align*}
+\mathbb{R} &\mapsto \theta \quad | \quad \omega \\
+\mathbb{R} &\mapsto \mathbb{R} \times \mathbb{R} \\
+\mathbb{R} &\mapsto \sin (\mathbb{G} \times \mathbb{R}) \quad | \quad \sin (\mathbb{G} \times \mathbb{R} + \mathbb{G}) \\
+\mathbb{R} &\mapsto {\rm exp}(\mathbb{G} \times \mathbb{R}) \\
+\mathbb{R} &\mapsto 1 / (1 + {\rm exp}(-\mathbb{G} \times \mathbb{R})) \\
+\mathbb{R} &\mapsto {\rm exp}(-(\mathbb{R}-\mathbb{G})^2/\mathbb{G}) \\
+\mathbb{R} &\mapsto {\rm imag}(\mathbb{R}^\mathbb{G}) \\
+\mathbb{R} &\mapsto {\rm real}(\mathbb{R}^\mathbb{G}) \\
+\mathbb{G} &\mapsto -\mathbb{G} \quad | \quad \mathbb{G}+\mathbb{G} \quad | \quad \mathbb{G}/\mathbb{G} \\
+\mathbb{G} &\mapsto {\rm logspace(-5, 2, 20)}
+\end{align*}
+
 Koopman theory [CITATION] states that an nonlinear dynamical system can be converted into a linear system under the state space mapping
-\[ \vec{x} \right \vec{g}{\vec{x}} \]
+\[ \vec{x} \rightarrow \vec{g}(\vec{x}) \]
 where $\vec{g}(x) = \begin{bmatrix} g_1(\vec{x}) & g_2(\vec{x}) & + & ... \end{bmatrix}$ and is, in general infinite dimensional.
 
 Given the time-discrete nonlinear dynamical system given by
