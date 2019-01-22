@@ -29,10 +29,12 @@
 
 
 %%%%%%%% this region contains all the stuff Anthony Added %%%%
-\usepackage{bm}
+\usepackage{vector}
 \usepackage{amsfonts}
 \usepackage{amsmath}
 \newcommand{\todo}[1]{\textbf{[[#1]]}}
+\renewcommand{\vec}[1]{\vect{#1}}
+\renewcommand{\mat}[1]{\vect{#1}}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \begin{document}
@@ -117,13 +119,13 @@ The goal in system identification is to find a parsimonious description of a dyn
 \subsection{Governing Equations}
 One approach to understanding a dynamical system is to determine its underlying governing equations. If the system is a spatio-temporal process, then governing equation can be written as partial differential equation (PDE) of the form
 \begin{equation}
-    \frac{\partial x (\vec{r},t)}{\partial t} = \theta_1 g_1(x(\vec{r},t)) + ... + \theta_n g_n(x(\vec{r},t))
+    \frac{\partial x (\vec{r},t)}{\partial t} = \theta_1 g_1(x(\vec{r},t)) + \ldots + \theta_n g_n(x(\vec{r},t))
 \end{equation}
 where $\vec{r}$ are the spatial dimension, $x$ is a state variables, $g_i$ are feature functions and $\theta_i$ are the corresponding coefficients. Given a mapping $g_i$, and a state $x$, the coefficients of the PDE can be found via a linear model of the form 
 \begin{equation}
  y = \theta^T \tilde{x}
  \end{equation}
-where $y = \partial u/ \partial t$ and $\tilde{x} = \begin{bmatrix}g_1(u), & \hdots, & g_n(u) \end{bmatrix}^T$. A good approximation of $\theta^T$ can be found by sampling many $y$ and $\tilde{x}$ points and then performing multiple linear regression. The goal, then, is to find the optimal set of features $g_i$ (and corresponding $\theta_i$) for producing the best fit between $y$ and $\tilde{x}$.
+where $y = \partial u/ \partial t$ and $\tilde{x} = \begin{bmatrix}g_1(u), & \ldots, & g_n(u) \end{bmatrix}^T$. A good approximation of $\theta^T$ can be found by sampling many $y$ and $\tilde{x}$ points and then performing multiple linear regression. The goal, then, is to find the optimal set of features $g_i$ (and corresponding $\theta_i$) for producing the best fit between $y$ and $\tilde{x}$.
 
 Note that when discovering a governing equation, only the input data is transformed by a nonlinear mapping, while the output data remains unchanged. If a nonlinear mapping were found that could be applied to both the input and output, then it would be possible to convert a nonlinear system into a linear one. This is known as finding the Koopman operator of a system and it is discussed in the next section.
 
@@ -132,7 +134,7 @@ Nonlinear dynamical systems are far more challending to understand and control t
 \begin{equation}
 x \rightarrow \vec{g}(x)
 \end{equation}
-where $\vec{g}(x) = \begin{bmatrix} g_1(x), g_2(x), & \hdots \end{bmatrix}^T$ are the Koopman eigenfunctions. In general, $\vec{g}$ is infinite dimensional and therefore it must be approximated with a finite-dimensiona mapping.
+where $\vec{g}(x) = \begin{bmatrix} g_1(x), g_2(x), \hdots \end{bmatrix}^T$ are the Koopman eigenfunctions. In general, $\vec{g}$ is infinite dimensional and therefore it must be approximated with a finite-dimensiona mapping.
 
 The Koopman operator can take a nonlinear dynamical system of the form
 \begin{equation}
@@ -218,10 +220,10 @@ The algorithm starts by performing a greedy forward search (Algorithm \ref{alg:f
    \quad \quad \quad Threshold $t$ \\
    \STATE Initialize $mapping = [ \ ]$
    \REPEAT
-   \STATE $old\_mapping = mapping$
+   \STATE $old\_mapping \gets mapping$
    \STATE $mapping = {\rm forward\_search}(mapping, lf, n_f, t)$
    \STATE $mapping = {\rm backward\_search}(mapping, lf, n_f, t)$
-   \UNTIL $old_mapping == mapping$
+   \UNTIL $old\_mapping = mapping$
 \end{algorithmic}
 \end{algorithm}
 
@@ -321,7 +323,7 @@ This solution is plotted in figure \ref{fig:advdif} for $x>0$, $t>0$, $D=1$, $v=
 \vskip -0.2in
 \end{figure}
 
-To apply SIEO the exact solution was sampled at 200 temporal points in the range $t = (0, 0.1)$ and between 10 and 200 spatial points . Then, additive white Gaussian noise at a level $\eta \in (0, 0.2)$ was added to the data such that the standard deviation of the noise is given by $\sigma = \eta \ {\rm std}(u)$. The grammar shown in figure \ref{fig:advdifgrammar} was used for the expression optimization routine and was limited to a tree depth of 3. The adjusted $R^2$ loss function was used with the parameter $\alpha = 0.5$. The solution was denoised using total variation filtering [tv citation] both before and after the numerical differentiation.
+To apply SIEO the exact solution was sampled at 200 temporal points in the range $t = (0, 0.1)$ and between 10 and 200 spatial points. Then, additive white Gaussian noise at a level $\eta \in (0, 0.2)$ was added to the data such that the standard deviation of the noise is given by $\sigma = \eta \ {\rm std}(u)$. The grammar shown in figure \ref{fig:advdifgrammar} was used for the expression optimization routine and was limited to a tree depth of 3. The adjusted $R^2$ loss function was used with the parameter $\alpha = 0.5$ and the solution was denoised using total variation filtering [tv citation] both before and after the numerical differentiation.
 \begin{figure}
     \vskip -0.2in
     \centering
@@ -375,9 +377,9 @@ The second test system is the incompressible 2D Navier-Stokes equations which de
 \frac{\partial v }{\partial t} + u \frac{\partial v }{\partial x} + v \frac{\partial v }{\partial y} &= - \frac{1}{\rho} \frac{\partial p}{\partial v} + \frac{\mu}{\rho}\left( \frac{\partial^2 v}{\partial x^2} + \frac{\partial^2 v}{\partial y^2} \right)
 \end{align}
 
-where $\rho$ is the fluid density, $(u, v)$ is the fluid velocity, $p$ is the pressure, and $\mu$ is the viscosity. The first equation represents the conservation of mass and the next two equations represent conservation of momentum in the $x$ and $y$ directions, respectively. These equations are nonlinear, have multiple dimensions ($x$ and $y$) and multiple degrees of freedom ($u$, $v$, and $p$), which makes them a challenging model system to identify.
+where $\rho$ is the fluid density, $(u, v)$ is the fluid velocity, $p$ is the pressure, and $\mu$ is the viscosity. The first equation represents the conservation of mass and the next two equations represent conservation of momentum in the $x$ and $y$ directions, respectively. These equations are nonlinear, have multiple dimensions ($x$ and $y$) and multiple state variables ($u$, $v$, and $p$), which makes them a challenging model system to identify.
 
-Synthetic data was collected from the simulation of vortex shedding behind a circular cylinder at a Reynold's number of 50. The simulation was performed using \emph{PyFR} [citation] and 10 snapshots were taken with a timestep of $dt = 0.001$, $M = 0.2$ and $\rho \approx 1$ (with a very small amount of compressibility in the solution). A single frame of the simulation is shown in figure \ref{fig:ns_data}, with $u$, $v$, and $p$ on separate plots. The grammar in figure \ref{fig:nsgrammar} was used to produce features up to a depth of 3, yielding 363 features and $2^{363}$ expressions to be searched.
+Synthetic data was collected from the simulation of vortex shedding behind a circular cylinder at a Reynold's number of 50. The simulation was performed using \emph{PyFR} [citation] and 10 snapshots were taken with a timestep of $dt = 0.001$, $M = 0.2$ and $\rho \approx 1$ (with a very small amount of compressibility in the solution). A single frame of the simulation is shown in figure \ref{fig:ns_data}, with $u$, $v$, and $p$ on separate plots. The grammar in figure \ref{fig:nsgrammar} was used to produce features up to a depth of 3, yielding 363 features and $2^{363}$ mappings to be searched.
 
 \begin{figure}
   \vskip 0.2in
@@ -414,7 +416,7 @@ SIEO was performed on the the vortex shedding data with the adjusted $R^2$ loss 
 \end{align}
 Note that the first equation requires the substitution $\partial v /\partial y = - \partial u / \partial x $ (from the continuity equation) to transform it to the more well-known form of the $x$-momentum equation. Also note the absence of the viscous terms $\partial^2 u / \partial x^2$, $\partial^2 v / \partial x^2$, and $\partial^2 v / \partial y^2$. These terms are not included because in this particular fluid flow they are much smaller in magnitude than the other terms in the governing equation. This shows that for SIEO to identify a process, that process must be sufficiently active in the data collected. 
 
-The ratios of the model coefficients were compared to get a sense of the error in the model parameters. The results are shown in table \ref{tab:ns_data}. In general, the model parameter error is very small and the discovered equations could be used for prediction or control of other similar types of flow field (i.e. those that don't have significant contributions from the viscous terms).
+The ratios of the model coefficients were compared to determine the error in the model parameters. The results are shown in table \ref{tab:ns_data}. In general, the model parameter error is very small and the discovered equations could be used for prediction or control of other similar types of flow field (i.e. those that don't have significant contributions from the three omitted viscous terms).
 
 \begin{table}[t]
 \caption{Error in Navier-Stokes Coefficients}
@@ -521,8 +523,6 @@ This equation can be converted to a system of nonlinear first-order ODEs given b
     \vskip -.15in
 \end{figure}
 
-
-\todo{section on methods}
 In order to generate training data, the system was integrated forward in time from a starting position $(\theta_0, \omega_0) = (\pi/2, 0)$ until $T=10$. Koopman operator was approximated by SIEO using the average sum of squares loss function with the same state-inclusive penalty described in section \ref{exactdiscovery}. The function-rich grammar shown in figure \ref{fig:odegrammar} was used as the input. The resulting expression with $24$ features was then compared to a linearized version of the equation with only the primary state variables. Both linear models were initialized at $(\theta_0, \omega_0) = (\pi/2, 0)$ and were allowed to evolve forward in time past the training period. The error between the linear model and the exact solution for each model is shown in figure \ref{fig:pendulum}.
 
 The figure shows that the linear model with more nonlinear features has significantly lower average error then the linear model with only the two state variables. Additionally, the error more slowly for the Koopman approximation. This shows that it is possible to improve linearizations of nonlinear model by using expression optimization to approximate the Koopman eigenfunctions of the system.
