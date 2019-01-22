@@ -32,9 +32,10 @@
 \usepackage{vector}
 \usepackage{amsfonts}
 \usepackage{amsmath}
+\usepackage{cleveref}
 \newcommand{\todo}[1]{\textbf{[[#1]]}}
 \renewcommand{\vec}[1]{\vect{#1}}
-\renewcommand{\mat}[1]{\vect{#1}}
+\newcommand{\mat}[1]{\vect{#1}}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \begin{document}
@@ -87,54 +88,54 @@
 \printAffiliationsAndNotice{\icmlEqualContribution} % otherwise use the standard text.
 
 \begin{abstract}
-With the abundance of natural data from physical systems, much engineering and scientific value comes from an ability to discover the underlying, governing equations of a system, with little prior knowledge. Current approaches for data-driven system identification either find relationships in the data that aren't interpretable, or require significant prior knowledge from the user. This work describes a new approach to system identification that requires minimal user input and discovers governing equations that are parsimonious, generalizable and interpretable. This is enabled by recent advances in expression optimization, allowing for the automated discovery of mathematical expressions from a combinatorically large set of possibilities. Using simulated data, our approach correctly identifies both linear and nonlinear PDEs including the Navier-Stokes equations. It can also generate exact and approximate Koopman eigenfunctions for nonlinear ODEs. The ability to interpret large amounts of data will allow researchers to better understand and control important natural systems, such as the earth’s climate, for addressing global warming and fluid flow for more efficient energy generation and transportation.
+Many of the most successful machine learning algorithms  find patterns in data using complex and uninterpretable models or require significant prior knowledge to produce interpretable results. This work describes a new approach to system identification that requires minimal user input and discovers governing equations that are parsimonious, generalizable and interpretable. This is enabled by techniques in expression optimization, allowing for the automated discovery of mathematical expressions from a combinatorically large set of possibilities. Using simulated data, our approach correctly identifies both linear and nonlinear PDEs including the Navier-Stokes equations, as well as discovering exact and approximate Koopman eigenfunctions for nonlinear ODEs. 
 \end{abstract}
 
 \section{Introduction}
 \label{introduction}
 
-Over the past several decades machine learning and artificial intelligence have made great strides in learning patterns from large amounts of data. Although accurate, these systems are often uninterpretable by the human researchers who create them. They do not report an explanation for their predictions nor do they generalize well when the task is changed slightly.
+Over the past several decades machine learning has made great strides in learning patterns from large amounts of data. Although accurate, these systems are often uninterpretable by the human researchers who create them. They do not report an explanation for their predictions nor do they generalize well when the task is altered. Constructing intrepretable and generalizable models will allow researchers to better understand and control important natural systems, such as the earth’s climate for addressing global warming and fluid flow for more efficient energy generation and transportation. 
 
-Recently, however, strides have been made to create AI systems that, rather than just looking for trends, look for causal explanations of observed data (Bridewell, 2008, Brunton, 2016). If an AI system can correctly determine a simple underlying model for a system, then it can provide an explanatory account of the data and generalize in predicting behavior under a wider variety of conditions. This can help researchers more quickly discover models that explain experimental data.
+System identification is the process of finding models that are that are simple, and generalize well to similar systems. For a model to interpretable it should also be expressed in mathematical terms understandable by a domain expert. Examples of interpretable models are partial differential equations (PDEs) or explicit functions that transform a nonlinear dynamical system into a linear one. 
 
-\todo{Describe the current systems and there limitations. Specifically that system identification approaches fall into two categories 1) Those that require no user input but produce opaque results 2) Those that produce interpretable results but require lots of prior knowledge}
+It is computationally very difficult to find an effective and parsimonious mathematical description from data. First, a set of possible mathematical descriptions must be generated (of which there are uncountably many) and then that set must be searched for the best subset that describe the data (an NP-hard computational task).
+ 
+ Current system identification approaches tend to fall into two categories: (1) Approaches that require little to no user input but produce results that are difficult to interpret, and (2) Approaches that produce interpretable output but require significant prior knowledge to apply.
 
-The goal of this work was to create a system that could discover, from data, the governing equations or Koopman eigenfunction of a dynamical system. The system should require minimal prior knowledge from the user, be robust to noise and operate on small amounts of data. This paper is organized as follows. Section \ref{systemidentification} describes how governing equations could be derived from data as well as the connection between equation discovery and the approximation of the Koopman operator. Section \ref{sieo} details the approach known as system identification through expression optimization (SIEO) and section \ref{results} reports the results of SIEO applied to four model systems. Finally, section \ref{conclusion} concludes and discusses directions for future investigation. 
+The first category contains methods like Dynamic Mode Decomposition (DMD) \cite{schmid2010dynamic, kutz2016dynamic} which projects the dynamics of a system onto the proper orthogonal decomposition (POD) of the state-space. The result is a low dimensional, linear model of the dynamics which can be used for prediction and control. The POD modes, however, do not describe the dynamical system in a way that makes contact with domain-specific concepts, and is therefore less interpretable by human researchers. Another approach is used by \cite{morton2018deep} where a deep convolutional neural network is used to linearize a high-dimensional nonlinear fluid system, where the resulting model is a very complicated and opaque neural network.
+
+The second category contains the method of \cite{brunton2016discovering} known as sparse identification of nonlinear dynamical systems (SINDy) which has been applied to PDEs \cite{rudy2017data} and ODEs with limited data \cite{kaiser2018sparse}. SINDy uses sparse regression on a set of features that are provided by the user to determine which are most effective at explaining the data. A similar technique is used in inductive process modelling \cite{bridewell2008inductive, langley2006constructing} which is typically applied to ODEs with many state variables. There have also been attempts to linearize nonlinear dynamical systems by explicitly defining a set of basis functions for a nonlinear mapping to linear a dynamical system. This approach was used by \cite{williams2015data, johnson2018class} to good effect, but still require the user to predefine the basis functions to be used. 
+
+This work describes a new approach for system identification that produces interpretable models from data with minimal user input. The user only specifies a small set of basic rules from which possible mathematical descriptions can be generated. Then, an optimization technique is applied to search the vast space of possibilities to find simple expressions to explain the data from several test problems. The relaxtion of the requirement of explicitly specifying possible descriptions, allow this new approach to tackle the challenging problem of deriving approximate Koopman eigenfunctions for the linearization of nonlinear systems.
+
+This paper is organized as follows. \Cref{systemidentification} describes how governing equations could be derived from data as well as the connection between equation discovery and the approximation of the Koopman operator. \Cref{sieo} details the approach known as system identification through expression optimization (SIEO) and \cref{results} reports the results of SIEO applied to four model systems. Finally, \cref{conclusion} concludes and discusses directions for future investigation. 
 
 
 
 \section{System Identification}
 \label{systemidentification}
 
-The goal in system identification is to find a parsimonious description of a dynamical system using data. This section will outline some of the previous work on system identification, and then discuss the two forms of identification that are the focus of this work.
-
-\subsection{Past Approaches}
-\todo{
-\begin{itemize}
-    \item SINDy and HPM where you have to specify entire features
-    \item DMD/POD where you get a low dimensional approximation without much user input but the resulting modes don't make contact with domain concepts.
-    \item extended DMD for Koopman approximation (need to specify features)
-\end{itemize}}
+The goal in system identification is to find a parsimonious description of a dynamical system using data. This section outlines two possible goals for system identification: (1) discovery of governing equations expressed as PDEs, and (2) the generation of approximate Koopman eigenfunctions for the linearization of nonlinear systems.
 
 \subsection{Governing Equations}
 One approach to understanding a dynamical system is to determine its underlying governing equations. If the system is a spatio-temporal process, then governing equation can be written as partial differential equation (PDE) of the form
 \begin{equation}
-    \frac{\partial x (\vec{r},t)}{\partial t} = \theta_1 g_1(x(\vec{r},t)) + \ldots + \theta_n g_n(x(\vec{r},t))
+    \frac{\partial \vec{x} (\vec{r},t)}{\partial t} = \theta_1 g_1(\vec{x}(\vec{r},t)) + \ldots + \theta_n g_n(\vec{x}(\vec{r},t))
 \end{equation}
-where $\vec{r}$ are the spatial dimension, $x$ is a state variables, $g_i$ are feature functions and $\theta_i$ are the corresponding coefficients. Given a mapping $g_i$, and a state $x$, the coefficients of the PDE can be found via a linear model of the form 
+where $\vec{r}$ contains the spatial dimensions, $\vec{x}$ contains the state variables, $\vec{g}_i$ are feature functions and $\theta_i$ are the corresponding coefficients. Given a mapping $g_i$, and a state $\vec{x}$, the coefficients of the PDE can be found via a linear model of the form 
 \begin{equation}
- y = \theta^T \tilde{x}
+ \vec{y} = \vec{\theta}^T \tilde{\vec{x}}
  \end{equation}
-where $y = \partial u/ \partial t$ and $\tilde{x} = \begin{bmatrix}g_1(u), & \ldots, & g_n(u) \end{bmatrix}^T$. A good approximation of $\theta^T$ can be found by sampling many $y$ and $\tilde{x}$ points and then performing multiple linear regression. The goal, then, is to find the optimal set of features $g_i$ (and corresponding $\theta_i$) for producing the best fit between $y$ and $\tilde{x}$.
+where $\vec{y} = \partial \vec{x}/ \partial t$ and $\tilde{\vec{x}} = \begin{bmatrix} \vec{g}_1(\vec{x}), \ldots, \vec{g}_n(\vec{x}) \end{bmatrix}^T$. A good approximation of $\theta^T$ can be found by sampling many $\vec{y}$ and $\tilde{\vec{x}}$ points and then performing multiple linear regression. The goal, then, is to find the optimal set of features $\vec{g}_i$ (and corresponding $\theta_i$) for producing the best fit between $\vec{y}$ and $\tilde{\vec{x}}$.
 
 Note that when discovering a governing equation, only the input data is transformed by a nonlinear mapping, while the output data remains unchanged. If a nonlinear mapping were found that could be applied to both the input and output, then it would be possible to convert a nonlinear system into a linear one. This is known as finding the Koopman operator of a system and it is discussed in the next section.
 
 \subsection{Koopman Operators}
-Nonlinear dynamical systems are far more challending to understand and control than their linear counterparts. One promising area of analysis is Koopman theory [CITATION] which states that any nonlinear dynamical system can be converted into a linear system under the state-space mapping
+Nonlinear dynamical systems are far more challenging to understand and control than their linear counterparts. One promising area of analysis is Koopman theory \cite{korda2018linear} which states that any nonlinear dynamical system can be converted into a linear system under the state-space mapping
 \begin{equation}
-x \rightarrow \vec{g}(x)
+\vec{x} \rightarrow \vec{g}(\vec{x})
 \end{equation}
-where $\vec{g}(x) = \begin{bmatrix} g_1(x), g_2(x), \hdots \end{bmatrix}^T$ are the Koopman eigenfunctions. In general, $\vec{g}$ is infinite dimensional and therefore it must be approximated with a finite-dimensiona mapping.
+where $\vec{g}(x) = \begin{bmatrix} \vec{g}_1(x), \vec{g}_2(x), \ldots \end{bmatrix}^T$ are the Koopman eigenfunctions. In general, $\vec{g}$ is infinite dimensional and therefore it must be approximated with a finite-dimensiona mapping.
 
 The Koopman operator can take a nonlinear dynamical system of the form
 \begin{equation}
@@ -143,15 +144,17 @@ The Koopman operator can take a nonlinear dynamical system of the form
 and transform it into the linear system
 \begin{equation}
 \label{fig:linsys}
-\vec{g}(x)^{t+N} = K^N \vec{g}(x)^{t}
+\vec{g}(\vec{x})^{t+N} = \mat{K}^N \vec{g}(\vec{x})^{t}
 \end{equation}
 Thus, if the the Koopman operator is known, all of the mathematical technologies developed around linear systems can be brought to bear on a nonlinear system. 
 
-If the Koopman eigenfunctions contain the identity function $g(x) = x$ then the Koopman operator is said to be \emph{state-inclusive} and the un-transformed state of the system can be found directly from the linear system (\ref{fig:linsys}), without finding an inverse transformation $\vec{g}^{-1}$.
+If the Koopman eigenfunctions contain the identity function $\vec{g}(\vec{x}) = \vec{x}$ then the Koopman operator is said to be \emph{state-inclusive} and the un-transformed state of the system can be found directly from the linear system (\cref{fig:linsys}), without finding an inverse transformation $\vec{g}^{-1}$.
 
-Given a finite approximation to the Koopman eigenfunctions $\vec{g}(x) = \begin{bmatrix} g_1(x), & \hdots, & g_n \end{bmatrix}^T$, the matrix $K$ can be found via a linear model of the form 
-\[ y = K \tilde{x} \]
-where $y = \vec{g}(x^{t+1})$ and $\tilde{x} = \vec{g}(x^t)$. If many points are sampled for $y$ and $\tilde{x}$ then multiple linear regression can provide the least-squares estimate of $K$. The goal for approximating the Koopman operator is to find finite approximation $\vec{g}(x)$ that creates the best fit between $y$ and $\tilde{x}$.
+Given a finite approximation to the Koopman eigenfunctions $\vec{g}(\vec{x}) = \begin{bmatrix} \vec{g}_1(\vec{x}), \ldots, \vec{g}_n \end{bmatrix}^T$, the matrix $\mat{K}$ can be found via a linear model of the form 
+\begin{equation}
+\vec{y} = \mat{K} \tilde{\vec{x}}
+\end{equation} 
+where $y = \vec{g}(\vec{x}^{t+1})$ and $\tilde{\vec{x}} = \vec{g}(\vec{x}^t)$. If many points are sampled for $\vec{y}$ and $\tilde{\vec{x}}$ then multiple linear regression can provide the least-squares estimate of $\mat{K}$. The goal for approximating the Koopman operator is to find finite approximation $\vec{g}(\vec{x})$ that creates the best fit between $\vec{y}$ and $\tilde{\vec{x}}$.
 
 It should now be clear that the problems of equation discovery and approximating the Koopman operator are identical except for the transformation of the output data in the latter case. The next section describes a new approach to finding these nonlinear mappings from the vast number of possibilities.
 
@@ -168,13 +171,13 @@ The first and third task each involve searching through a combinatorically large
 \subsection{Context-Free Grammar}
 
 % Motivate the need for a grammar
-There are an infinite number of features that could make up a mapping, but, researchers don't generally know a priori which features will be good candidates. Thus, a design goal of SIEO is to require minimal prior knowledge from the user while still constraining the possible features to be searched.
+There are an infinite number of features that could make up a mapping, but, researchers do not generally know a priori which features will be good candidates. Thus, a design goal of SIEO is to require minimal prior knowledge from the user while still constraining the possible features to be searched.
 
 % Describe what the grammar is
-To this end, SIEO relies on a domain-specific \textit{grammar}, provided by the user, that gives the rules for generating feature functions. A grammar is a set of production rules that govern a language (or a set of expressions). Each rule can either be \textit{non-terminal}, in which the rule relates generic expressions together (e.g. multiplication), or \textit{terminal}, in which an expression is concretely defined (e.g. the observed data). Each expression in the language can be represented by a tree of operators, each of which is part of the grammar. Once a grammar is defined, expressions can be sampled from the grammar with varying levels of complexity (as defined by the depth of the expression tree).
+To this end, SIEO relies on a domain-specific \textit{grammar}, provided by the user, that gives the rules for generating feature functions \cite{kochenderfer2019algorithms}. A grammar is a set of production rules that govern a language (or a set of expressions). Each rule can either be \textit{non-terminal}, in which the rule relates generic expressions together (e.g. multiplication), or \textit{terminal}, in which an expression is concretely defined (e.g. the observed data). Each expression in the language can be represented by a tree of operators, each of which is part of the grammar. Once a grammar is defined, expressions can be sampled from the grammar with varying levels of complexity (as defined by the depth of the expression tree).
 
 % Given an example of a sample from the grammar
-For example, the grammar in figure \ref{fig:advdifgrammar} has rules for differentiation, multiplication, and division. Sampling from a grammar is a process of selecting production rules and then filling in any non-terminal expressions until only terminal expressions remain. For example, in the expression 
+For example, the grammar in \cref{fig:advdifgrammar} has rules for differentiation, multiplication, and division. Sampling from a grammar is a process of selecting production rules and then filling in any non-terminal expressions until only terminal expressions remain. For example, in the expression 
 \begin{equation}
     u \frac{\partial u}{\partial x }
 \end{equation}
@@ -185,21 +188,20 @@ The benefit to this approach is two-fold
     \item For the cost of defining a simple grammar, an infinite number possible expressions (ranging from simple to complex) can be produced
     \item The researcher can encode into the grammar any information she may have regarding relationships between the input and output data.
 \end{enumerate}
-As will be demonstrated in later sections, many familiar PDEs have features that come from a very simple grammar (2-3 rules) with a very short depth (2-3). The next subsection describes the loss functions used to compare different features.  
+As will be demonstrated in later sections, many familiar PDEs have features that come from a very simple grammar (2--3 rules) with a very short depth (2--3). The next subsection describes the loss functions used to compare different features.  
 
 \subsection{Choice of Loss Function}
 \label{lossfunction}
-When attempting to discover a governing equation to explain data, the object is to find a mapping that describes the output data well, but also to find a mapping that is simple (i.e. has fewer features). To balance this multi-objective, the negative adjusted $R^2$ value ($R_{\rm adj}^2$) of the fit was used for the loss function. The traditional $R^2$ value always increases when new features are added so it makes our algorithm susceptible to overfitting. $R_{\rm adj}^2$, however, penalizes the addition of more features via [CITATION]
-\[R_{\rm adj}^2 = R^2 - \alpha (1-  R^2)(n-1)\]
+When attempting to discover a governing equation to explain data, the object is to find a mapping that describes the output data well, but also to find a mapping that is simple (i.e. has fewer features). To balance this multi-objective, the negative adjusted $R^2$ value ($R_{\rm adj}^2$) of the fit was used for the loss function. The traditional $R^2$ value always increases when new features are added so it makes the algorithm susceptible to overfitting. The adjusted value, however, penalizes the addition of more features via
+\begin{equation} 
+R_{\rm adj}^2 = R^2 - \alpha (1-  R^2)(n-1)
+\end{equation}
 where $n$ is the number of features in the model. Note that when $n=1$, this expression reduces to the traditional $R^2$ value. But when $n>1$, then the difference between $R^2$ and 1 is scaled by the number of parameters. Thus, as a rule of thumb, $\alpha \in [0, \infty)$ should be large when you expect there to be excellent agreement between the input and output (i.e. for synthetic, noise-free data) and should be closer to 0 when near-perfect agreement is not expected (i.e. real world data). The loss function is explicitly defined as 
 \begin{equation}
     l_R(\theta, \vec{g}) = - R_{\rm adj}^2(\theta, \vec{g})
 \end{equation}
-
-For the goal of discovering Koopman eigenfunctions, however, parsimony is no longer a consideration so a new loss function needs to be used. Given a linear system with $n_g$ number of Koopman eigenfunctions, the loss function associated with the Koopman operator $K \vec{g}$ is given by
-
-\[ l_k(K \vec{g}) = \frac{1}{n_g}||\vec{g}(\vec{x})^{t+1} - K \vec{g}(\vec{x})^{t}||_2^2 \]
-
+For the goal of discovering Koopman eigenfunctions, however, parsimony is no longer a consideration so a new loss function needs to be used. Given a linear system with $n_g$ number of Koopman eigenfunctions, the loss function associated with the Koopman operator $\mat{K} \vec{g}$ is given by
+\begin{equation} l_k(\mat{K} \vec{g}) = \frac{1}{n_g}\lVert \vec{g}(\vec{x})^{t+1} - \mat{K} \vec{g}(\vec{x})^{t}\rVert _2^2 \end{equation}
 The scaling by $1/n_g$ is so that that algorithm does not get penalized for adding more Koopman eigenfunctions to approximate the nonlinear system, and instead focuses on closely matching each new state variable on each iteration. This loss function is referred to as the \emph{average sum of squares}. The following subsection ties together the use of a grammar and the loss functions to explain how expression optimization and heuristic search are used to select features.
 
 
@@ -207,9 +209,9 @@ The scaling by $1/n_g$ is so that that algorithm does not get penalized for addi
 
 The problem of selecting from a group of possible features is a challenging one. If there are $N$ possible features then there are $2^N$ possible subsets to pick from. It is infeasible to search the entire space of combinations for even moderate values of $N$, so heuristic searches need to be employed. 
 
-Previous approaches have used sparsity-promoting regression techniques such as LASSO [Citation] but these approaches are brittle when the input data suffers from mulicollinearity [ PDE citation]. In this work, the heuristic that performed the best was a modified form of a greedy search algorithm that combined both forward and backward search. The high-level structure of the algorithm is given in Algorithm \ref{alg:featureselection}.
+Previous approaches have used sparsity-promoting regression techniques such as LASSO \cite{tibshirani1996regression} but these approaches are brittle when the input data suffers from mulicollinearity \cite{rudy2017data}. In this work, the most effective heuristic was a modified form of a greedy search algorithm that combined both forward and backward search. The high-level structure of the algorithm is given in \cref{alg:featureselection}.
 
-The algorithm starts by performing a greedy forward search (Algorithm \ref{alg:forwardsearch}), where, on each iteration, a feature is greedily added to the mapping until there is either no further improvement or a specified threshold is hit. Then, the feature selection algorithm performs a greedy backward search on the mapping (Algorithm \ref{alg:backwardsearch}), where features are removed if their absence reduces the loss function. This entire process iterates until there is no further improvement of the mapping, at which point it is returned.
+The algorithm starts by performing a greedy forward search (\cref{alg:forwardsearch}), where, on each iteration, a feature is greedily added to the mapping until there is either no further improvement or a specified threshold is hit. Then, the feature selection algorithm performs a greedy backward search on the mapping ( \cref{alg:backwardsearch}), where features are removed if their absence reduces the loss function. This entire process iterates until there is no further improvement of the mapping, at which point it is returned.
 
 \begin{algorithm}[tb]
    \caption{Feature Selection}
@@ -218,11 +220,11 @@ The algorithm starts by performing a greedy forward search (Algorithm \ref{alg:f
    \STATE {\bfseries Input:} Loss function $l_f$, \\
    \quad \quad \quad New feature generator $n_f$, \\
    \quad \quad \quad Threshold $t$ \\
-   \STATE Initialize $mapping = [ \ ]$
+   \STATE Initialize $mapping \gets [ \ ]$
    \REPEAT
    \STATE $old\_mapping \gets mapping$
-   \STATE $mapping = {\rm forward\_search}(mapping, lf, n_f, t)$
-   \STATE $mapping = {\rm backward\_search}(mapping, lf, n_f, t)$
+   \STATE $mapping \gets {\rm forward\_search}(mapping, lf, n_f, t)$
+   \STATE $mapping \gets {\rm backward\_search}(mapping, lf, n_f, t)$
    \UNTIL $old\_mapping = mapping$
 \end{algorithmic}
 \end{algorithm}
@@ -235,11 +237,11 @@ The algorithm starts by performing a greedy forward search (Algorithm \ref{alg:f
    \quad \quad \quad Current mapping $mapping$, \\
    \quad \quad \quad New feature generator $n_f$, \\
    \quad \quad \quad Threshold $t$ \\
-   \STATE Initialize $lowest = l_f(mapping)$
+   \STATE Initialize $lowest \gets l_f(mapping)$
    \REPEAT
-   \STATE $mapping = {\rm concat}(mapping, \ n_f(mapping))$
+   \STATE $mapping \gets {\rm concat}(mapping, \ n_f(mapping))$
    \IF{$l_f(mapping) < lowest$}
-   \STATE $lowest = l_f(mapping)$
+   \STATE $lowest \gets l_f(mapping)$
    \ELSE
    \STATE {\bfseries return} $mapping$
    \ENDIF
@@ -256,15 +258,15 @@ The algorithm starts by performing a greedy forward search (Algorithm \ref{alg:f
    \quad \quad \quad Threshold $t$ \\
    \STATE Initialize $lowest = l_f(mapping)$
    \REPEAT
-   \STATE Initialize $losses = [ \ ]$
+   \STATE Initialize $losses \gets [ \ ]$
    \FOR{$feat$ {\bfseries in} $mapping$}
-   \STATE $new\_mapping = {\rm remove}(mapping, feat)$
+   \STATE $new\_mapping \gets {\rm remove}(mapping, feat)$
    \STATE ${\rm push}(losses, l_f(new\_mapping))$
    \ENDFOR
-   \STATE $i = {\rm arg\,max}(losses)$
+   \STATE $i \gets {\rm arg\,max}(losses)$
    \IF{$losses[i] < lowest$}
-   \STATE $lowest = losses[i]$
-   \STATE $mapping = {\rm remove}(mapping, feat)$
+   \STATE $lowest \gets losses[i]$
+   \STATE $mapping \gets {\rm remove}(mapping, feat)$
    \ELSE
    \STATE {\bfseries return} $mapping$
    \ENDIF
@@ -276,13 +278,13 @@ The substantial missing piece of this process is how to find the next feature to
 
 
 \subsubsection{Expression Optimization}
-There are several excellent algorithms for expression optimization using a grammar, but the one used in SIEO is  Grammatical Evolution (GE), an expression optimization approach introduced by [CITATION]. Each feature that is sampled from the grammar is expressed as an unbounded integer array that can be parsed from left to right into an expression tree. Each integer array is transformed in a manner similar to genetic algorithms. The basic operations are
+There are several excellent algorithms for expression optimization using a grammar, but the one used in SIEO is  Grammatical Evolution (GE), an expression optimization approach introduced by \cite{ryan1998grammatical}. Each feature that is sampled from the grammar is expressed as an unbounded integer array that can be parsed from left to right into an expression tree. Each integer array is transformed in a manner similar to genetic algorithms. The basic operations are
 \begin{enumerate}
-\item \textbf{Selection} - The integer arrays with the best fitness (lowest loss function) are selected from the population
-\item \textbf{Crossover} - The fittest individuals produce offspring that carry traits from the parents
-\item \textbf{Mutation} - The integer arrays are randomly altered (while preserving the rules of the grammar)
-\item \textbf{Gene Duplication} - Where useful genes are copied in the integer array so that they are less likely to be lost
-\item \textbf{Pruning} - Some integer arrays will contain genetic information that is unused (put there through crossover). So with some probability unused genes are pruned in an individual.
+\item \textbf{Selection}: The integer arrays with the best fitness (lowest loss function) are selected from the population
+\item \textbf{Crossover}: The fittest individuals produce offspring that carry traits from the parents
+\item \textbf{Mutation}: The integer arrays are randomly altered (while preserving the rules of the grammar)
+\item \textbf{Gene Duplication}: Where useful genes are copied in the integer array so that they are less likely to be lost
+\item \textbf{Pruning}: Some integer arrays will contain genetic information that is unused (put there through crossover). So with some probability unused genes are pruned in an individual.
 \end{enumerate}
 
 These operations are applied to a large number of individuals over many generations in order to produce optimal features from the large space of possibilities. In the following section, SIEO is applied to several model systems to demonstrate several possible applications.
@@ -298,7 +300,7 @@ The first model problem is the unsteady 1D advection-diffusion equation which de
 \begin{equation} 
 \frac{\partial u}{\partial t} = D\frac{\partial^2 u}{\partial x^2} - v \frac{\partial u}{\partial x}
 \end{equation}
-where $D$ is the diffusion coefficient, $v$ is the fluid velocity. Synthetic data is generated using the exact solution derived by [Van Genuchten citation 1982] which for boundary conditions 
+where $D$ is the diffusion coefficient, $v$ is the fluid velocity. Synthetic data is generated using the exact solution derived by \cite{van1982analytical} which for boundary conditions 
 \begin{align}
   u(x,0) &= u_0 \\
   u(0,t) &= u_L \\
@@ -311,7 +313,7 @@ is found to be
   &+ \left.{\rm exp}(vx/D) {\rm erfc}\left[ \frac{x + vt}{2\sqrt{Dt}}\right] \right)
   \end{split}
 \end{equation}
-This solution is plotted in figure \ref{fig:advdif} for $x>0$, $t>0$, $D=1$, $v=1$, and $U_L = 1$.
+This solution is plotted in \cref{fig:advdif} for $x>0$, $t>0$, $D=1$, $v=1$, and $U_L = 1$.
 
 \begin{figure}
 \vskip 0.2in
@@ -323,7 +325,7 @@ This solution is plotted in figure \ref{fig:advdif} for $x>0$, $t>0$, $D=1$, $v=
 \vskip -0.2in
 \end{figure}
 
-To apply SIEO the exact solution was sampled at 200 temporal points in the range $t = (0, 0.1)$ and between 10 and 200 spatial points. Then, additive white Gaussian noise at a level $\eta \in (0, 0.2)$ was added to the data such that the standard deviation of the noise is given by $\sigma = \eta \ {\rm std}(u)$. The grammar shown in figure \ref{fig:advdifgrammar} was used for the expression optimization routine and was limited to a tree depth of 3. The adjusted $R^2$ loss function was used with the parameter $\alpha = 0.5$ and the solution was denoised using total variation filtering [tv citation] both before and after the numerical differentiation.
+To apply SIEO the exact solution was sampled at 200 temporal points in the range $t = (0, 0.1)$ and between 10 and 200 spatial points. Then, additive white Gaussian noise at a level $\eta \in (0, 0.2)$ was added to the data such that the standard deviation of the noise is given by $\sigma = \eta \ {\rm std}(u)$. The grammar shown in \cref{fig:advdifgrammar} was used for the expression optimization routine and was limited to a tree depth of 3. The adjusted $R^2$ loss function was used with the parameter $\alpha = 0.5$ and the solution was denoised using total variation filtering \cite{rudin1992nonlinear} both before and after the numerical differentiation.
 \begin{figure}
     \vskip -0.2in
     \centering
@@ -340,7 +342,7 @@ To apply SIEO the exact solution was sampled at 200 temporal points in the range
     \label{fig:advdifgrammar}
     \vskip -.15in
 \end{figure}
-The results of six test cases are shown in table \ref{tab:advdifresults}. After the trial number, the first two columns show the number of spatial sample points used and the noise level, respectively. The last two columns show the percent error in the model parameters, $v$ and $D$ when compared to their exact values. In all six test cases, SIEO determined the correct form of the governing equation. When the noise is 1-5 \% and the number of sample points is 35 or larger, the error in the parameters remains small. In the two most challenging test cases (trials 3 and 6), the fit parameters $v$ and $D$ show high levels of error but the correct form the equation was still discovered accurately which demonstrates the robustness of SIEO to find an accurate and generalizable model with large amounts of noise or limited data.
+The results of six test cases are shown in \cref{tab:advdifresults}. After the trial number, the first two columns show the number of spatial sample points used and the noise level, respectively. The last two columns show the percent error in the model parameters, $v$ and $D$ when compared to their exact values. In all six test cases, SIEO determined the correct form of the governing equation. When the noise is 1--5 \% and the number of sample points is 35 or larger, the error in the parameters remains small. In the two most challenging test cases (trials 3 and 6), the fit parameters $v$ and $D$ show high levels of error but the correct form the equation was still discovered accurately which demonstrates the robustness of SIEO to find an accurate and generalizable model with large amounts of noise or limited data.
 
 \begin{table}[t]
 \caption{Error in solution parameters for different noise levels and spatial resolutions}
@@ -379,14 +381,14 @@ The second test system is the incompressible 2D Navier-Stokes equations which de
 
 where $\rho$ is the fluid density, $(u, v)$ is the fluid velocity, $p$ is the pressure, and $\mu$ is the viscosity. The first equation represents the conservation of mass and the next two equations represent conservation of momentum in the $x$ and $y$ directions, respectively. These equations are nonlinear, have multiple dimensions ($x$ and $y$) and multiple state variables ($u$, $v$, and $p$), which makes them a challenging model system to identify.
 
-Synthetic data was collected from the simulation of vortex shedding behind a circular cylinder at a Reynold's number of 50. The simulation was performed using \emph{PyFR} [citation] and 10 snapshots were taken with a timestep of $dt = 0.001$, $M = 0.2$ and $\rho \approx 1$ (with a very small amount of compressibility in the solution). A single frame of the simulation is shown in figure \ref{fig:ns_data}, with $u$, $v$, and $p$ on separate plots. The grammar in figure \ref{fig:nsgrammar} was used to produce features up to a depth of 3, yielding 363 features and $2^{363}$ mappings to be searched.
+Synthetic data was collected from the simulation of vortex shedding behind a circular cylinder at a Reynold's number of 50. The simulation was performed using \emph{PyFR} \cite{witherden2014pyfr} and 10 snapshots were taken with a timestep of $dt = 0.001$, $M = 0.2$ and $\rho \approx 1$ (with a very small amount of compressibility in the solution). A single frame of the simulation is shown in \cref{fig:ns_data}, with $u$, $v$, and $p$ on separate plots. The grammar in \cref{fig:nsgrammar} was used to produce features up to a depth of 3, yielding 363 features and $2^{363}$ mappings to be searched.
 
 \begin{figure}
   \vskip 0.2in
-    \subfloat[$x$-velocity]{\label{xvelocity}\includegraphics[width=\columnwidth]{./figures/xvel}} \\
+    \subfloat[$x$-velocity]{\label{xvelocity}\includegraphics[width=0.977\columnwidth]{./figures/xvel}} \\
     \subfloat[$y$-velocity]{\label{yvelocity}\includegraphics[width=\columnwidth]{./figures/yvel}} \\
-    \subfloat[pressure]{\label{pressure}\includegraphics[width=\columnwidth]{./figures/pressure}}
-    \caption{Global caption that can reference \ref{sublable1} and \ref{sublable2}}
+    \subfloat[pressure]{\label{pressure}\includegraphics[width=0.94\columnwidth]{./figures/pressure}}
+    \caption{One snapshot of vortex-shedding behind a circular cylinder}
     \label{fig:ns_data}
     \vskip -0.2in
 \end{figure}
@@ -407,7 +409,7 @@ Synthetic data was collected from the simulation of vortex shedding behind a cir
     \vskip -.15in
 \end{figure}
 
-SIEO was performed on the the vortex shedding data with the adjusted $R^2$ loss function and $\alpha = 0.2 $. The algorithm found equations \ref{eqn:xmom} and \ref{eqn:ymom} to explain the unsteady Navier-Stokes data
+SIEO was performed on the the vortex shedding data with the adjusted $R^2$ loss function and $\alpha = 0.2 $ and it found ~\cref{eqn:xmom,eqn:ymom} to explain the unsteady Navier-Stokes data
 \begin{align}
 \label{eqn:xmom}
     \frac{\partial u}{\partial t} &= {\theta_x}_1 \frac{\partial}{\partial y} (u v) + {\theta_x}_2 v \frac{\partial u}{\partial y} + {\theta_x}_3 \frac{\partial p}{\partial y} + {\theta_x}_4 \frac{\partial^2 u}{\partial y^2} \\
@@ -416,7 +418,7 @@ SIEO was performed on the the vortex shedding data with the adjusted $R^2$ loss 
 \end{align}
 Note that the first equation requires the substitution $\partial v /\partial y = - \partial u / \partial x $ (from the continuity equation) to transform it to the more well-known form of the $x$-momentum equation. Also note the absence of the viscous terms $\partial^2 u / \partial x^2$, $\partial^2 v / \partial x^2$, and $\partial^2 v / \partial y^2$. These terms are not included because in this particular fluid flow they are much smaller in magnitude than the other terms in the governing equation. This shows that for SIEO to identify a process, that process must be sufficiently active in the data collected. 
 
-The ratios of the model coefficients were compared to determine the error in the model parameters. The results are shown in table \ref{tab:ns_data}. In general, the model parameter error is very small and the discovered equations could be used for prediction or control of other similar types of flow field (i.e. those that don't have significant contributions from the three omitted viscous terms).
+The ratios of the model coefficients were compared to determine the error in the model parameters. The results are shown in \cref{tab:ns_data}. In general, the model parameter error is very small and the discovered equations could be used for prediction or control of other similar types of flow field (i.e. those that do not have significant contributions from the three omitted viscous terms).
 
 \begin{table}[t]
 \caption{Error in Navier-Stokes Coefficients}
@@ -445,13 +447,11 @@ ${\theta_y}_3 / {\theta_x}_1 $ & 0.92 \% \\
 \subsection{Exact Koopman Eigenfunction Discovery}
 \label{exactdiscovery}
 A simple nonlinear ODE with an easily found, and finite-dimensional Koopman eigenfunctions is given by [Brunton citation]
-\begin{equation}
-\begin{split}
+\begin{align}
   \label{simplekoopman}
-\frac{dx}{dt} = \mu x \\
-\frac{dy}{dt} = \lambda(y - x^2)
-\end{split}
-\end{equation}
+\frac{dx}{dt} &= \mu x \\
+\frac{dy}{dt} &= \lambda(y - x^2)
+\end{align}
 The state-space transformation
 \begin{equation}
     \label{eqn:exacttransform}
@@ -464,7 +464,7 @@ y \\
 x^2
 \end{bmatrix}
 \end{equation}
-linearizes equation \ref{simplekoopman} to
+linearizes \cref{simplekoopman} to
 \begin{equation}
     \label{eqn:koopmanop}
 \frac{d}{dt} \begin{bmatrix}
@@ -482,7 +482,7 @@ x^2
 \end{bmatrix}
 \end{equation}
 
-To test the discovery of exact Koopman operators, data from the system (\ref{simplekoopman}) was collected data for many initial conditions. The initial data is stored in a vector $\vec{x}^0$, then the solution is integrated forward one timestep and the result is stored in another vector $\vec{x}^1$. SIEO was then applied with the average sum of squares loss function $l_k$. The goal was to find a state-inclusive Koopman operator so the loss function was modified to penalize the absence of the primary state variables $x$ and $y$. The function-rich grammar in figure \ref{fig:odegrammar} was used as input (exchanging ($\theta$, $\omega$) for ($x$, $y$)). The correct Koopman transformation was discovered (equation \ref{eqn:exacttransform}) and the Koopman operator (equation \ref{eqn:koopmanop}) was recovered to within machine precision.
+To test the discovery of exact Koopman operators, data from the system (\cref{simplekoopman}) was collected data for many initial conditions. The initial data is stored in a vector $\vec{x}^0$, then the solution is integrated forward one timestep and the result is stored in another vector $\vec{x}^1$. SIEO was then applied with the average sum of squares loss function $l_k$. The goal was to find a state-inclusive Koopman operator so the loss function was modified to penalize the absence of the primary state variables $x$ and $y$. The function-rich grammar in \cref{fig:odegrammar} was used as input (exchanging ($\theta$, $\omega$) for ($x$, $y$)). The correct Koopman transformation was discovered (\cref{eqn:exacttransform}) and the Koopman operator (\cref{eqn:koopmanop}) was recovered to within machine precision.
 
 
 
@@ -492,12 +492,13 @@ To test the discovery of exact Koopman operators, data from the system (\ref{sim
 
 \subsection{Approximate Koopman Eigenfunction Discovery of Nonlinear Pendulum}
 One of the simplest nonlinear ODEs without a known Koopman operator, is a simple pendulum swinging at large angles. The equation of motion a pendulum is given by
-\[ \frac{d^2 \theta}{d t^2} + \sin \theta = 0 \]
+\begin{equation}
+\frac{d^2 \theta}{d t^2} + \sin \theta = 0 \end{equation}
 This equation can be converted to a system of nonlinear first-order ODEs given by
-\begin{align*}
+\begin{align}
 \frac{d\theta}{dt} &= \omega \\
 \frac{d\omega}{dt} &= -\sin \theta
-\end{align*}
+\end{align}
 
 
 \begin{figure}
@@ -523,7 +524,7 @@ This equation can be converted to a system of nonlinear first-order ODEs given b
     \vskip -.15in
 \end{figure}
 
-In order to generate training data, the system was integrated forward in time from a starting position $(\theta_0, \omega_0) = (\pi/2, 0)$ until $T=10$. Koopman operator was approximated by SIEO using the average sum of squares loss function with the same state-inclusive penalty described in section \ref{exactdiscovery}. The function-rich grammar shown in figure \ref{fig:odegrammar} was used as the input. The resulting expression with $24$ features was then compared to a linearized version of the equation with only the primary state variables. Both linear models were initialized at $(\theta_0, \omega_0) = (\pi/2, 0)$ and were allowed to evolve forward in time past the training period. The error between the linear model and the exact solution for each model is shown in figure \ref{fig:pendulum}.
+In order to generate training data, the system was integrated forward in time from a starting position $(\theta_0, \omega_0) = (\pi/2, 0)$ until $T=10$. Koopman operator was approximated by SIEO using the average sum of squares loss function with the same state-inclusive penalty described in \cref{exactdiscovery}. The function-rich grammar shown in \cref{fig:odegrammar} was used as the input. The resulting expression with $24$ features was then compared to a linearized version of the equation with only the primary state variables. Both linear models were initialized at $(\theta_0, \omega_0) = (\pi/2, 0)$ and were allowed to evolve forward in time past the training period. The error between the linear model and the exact solution for each model is shown in \cref{fig:pendulum}.
 
 The figure shows that the linear model with more nonlinear features has significantly lower average error then the linear model with only the two state variables. Additionally, the error more slowly for the Koopman approximation. This shows that it is possible to improve linearizations of nonlinear model by using expression optimization to approximate the Koopman eigenfunctions of the system.
 
@@ -537,16 +538,17 @@ The figure shows that the linear model with more nonlinear features has signific
 \vskip -0.2in
 \end{figure}
 
-\section{Conclusions}
+\section{Conclusions and Future work}
 \label{conclusion}
 
-\begin{itemize}
-    \item Robustness in finding correct features in the presence of noise and limited data make the resulting model very generalizeable
-    \item It can seach through a vast number of possible features and mappings -- even in problems with multiple state variables and multiple dimenions
-    \item Presesnts a new way of finding exact and approximate Koopman operators
-\end{itemize}
+From the previous experiments, we conclude that the use of context-free grammars and expression optimization is an effective way of generating mappings that describe observed data. The system is robust to noise and can operate on small amounts of data. Additionally it is robust to multiple dimensions and variables in the state space. Lastly, it has been demonstrated that expression optimization has the potential to discover exact and approximate analytical Koopman eigenfunctions for the linearization of nonlinear systems. 
 
-\todo{Summarize and conclude}
+Further work on this topic will focus on
+\begin{itemize}
+\item Discovering the Koopman eigenfunction approximations for larger dynamical systems and using the resulting model for Model Predictive Control
+\item Including free-parameter optimization into the selection of expressions
+\item Investigating which grammars perform best for equation discovery and Koopman eigenfunction approximation
+\end{itemize}
 
 
 
@@ -556,7 +558,7 @@ The figure shows that the linear model with more nonlinear features has signific
 % In the unusual situation where you want a paper to appear in the
 % references without citing it in the main text, use \nocite
 
-% \bibliography{example_paper}
+\bibliography{ICML_SIEO}
 \bibliographystyle{icml2019}
 
 
